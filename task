@@ -1,1 +1,65 @@
 
+def sigmoid(x):
+    """Sigmoid function"""
+    return 1.0 / (1.0 + np.exp(-x))
+import tensorflow as tf
+import numpy as np
+
+class LogicGate(tf.Module):
+    def __init__(self):
+        super().__init__()
+        self.built = False 
+    def __call__(self, x, train=True):
+       
+        if not self.built:
+            input_dim = x.shape[-1] 
+            
+            self.w1 = tf.Variable(tf.random.normal([input_dim, 2]), name="w1")
+            self.b1 = tf.Variable(tf.zeros([2]), name="b1")
+            
+            self.w2 = tf.Variable(tf.random.normal([2, 1]), name="w2")
+            self.b2 = tf.Variable(tf.zeros([1]), name="b2")
+
+            self.built = True
+
+        hidden_layer = tf.sigmoid(tf.add(tf.matmul(x, self.w1), self.b1))  
+        output = tf.sigmoid(tf.add(tf.matmul(hidden_layer, self.w2), self.b2))  
+        
+        return output
+
+def compute_loss(y_pred, y_true):
+    return tf.reduce_mean(tf.losses.binary_crossentropy(y_true, y_pred))
+
+def train_model(model, x_train, y_train, learning_rate=0.5, epochs=10000):
+    for epoch in range(epochs):
+        with tf.GradientTape() as tape:
+            y_pred = model(x_train)  
+            loss = compute_loss(y_pred, y_train)
+
+        grads = tape.gradient(loss, model.variables)
+        for g, v in zip(grads, model.variables):
+            v.assign_sub(learning_rate * g)
+
+      
+        if epoch % 1000 == 0:
+            acc = compute_accuracy(model, x_train, y_train)
+            print(f"Epoch {epoch}, Loss: {loss.numpy():.4f}, Accuracy: {acc:.4f}")
+
+
+def compute_accuracy(model, x, y_true):
+    y_pred = model(x, train=False)
+    y_pred_rounded = tf.round(y_pred)
+    correct = tf.equal(y_pred_rounded, y_true)
+    return tf.reduce_mean(tf.cast(correct, tf.float32)).numpy()
+
+
+x_train = np.array([[0,0], [0,1], [1,0], [1,1]], dtype=np.float32)
+y_train = np.array([[0], [1], [1], [0]], dtype=np.float32)
+
+xor_model = LogicGate()
+train_model(xor_model, x_train, y_train)
+
+
+for i in range(4):
+    pred = xor_model(x_train[i:i+1]).numpy()[0][0]
+    print(f"XOR({x_train[i]}) = {round(pred)}")
